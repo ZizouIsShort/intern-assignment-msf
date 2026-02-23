@@ -14,39 +14,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const base64PDF = Buffer.from(arrayBuffer).toString("base64");
+    const uploadedFile = await ai.files.upload({
+      file: file,
+      config: { mimeType: "application/pdf" },
+    });
 
     const raw = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
         {
-          inlineData: {
+          fileData: {
             mimeType: "application/pdf",
-            data: base64PDF,
+            fileUri: uploadedFile.uri,
           },
         },
         {
-          text: `
-You are a financial research analyst.
-
-Analyze the earnings call transcript and return JSON in this format:
-
-{
-  "tone": "...",
-  "confidence": "...",
-  "positives": ["..."],
-  "concerns": ["..."],
-  "forward_guidance": "...",
-  "growth_initiatives": ["..."]
-}
-`,
+          text: `Analyze this earnings call transcript and return JSON with tone, confidence, positives, concerns, forward_guidance, growth_initiatives.`,
         },
       ],
     });
 
     const llmResponse = raw.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    console.log(llmResponse);
+
     return NextResponse.json({
       success: true,
       respone: llmResponse,
