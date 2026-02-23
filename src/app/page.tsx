@@ -35,7 +35,7 @@ export default function FileUpload() {
       const { GoogleGenAI } = await import("@google/genai");
 
       const ai = new GoogleGenAI({
-        apiKey: process.env.GOOGLE_API_KEY!,
+        apiKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY!,
       });
 
       // Upload file directly to Gemini
@@ -47,7 +47,7 @@ export default function FileUpload() {
       setStatus("Analyzing...");
 
       const raw = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: [
           {
             fileData: {

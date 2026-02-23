@@ -14,6 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
+    // Upload file directly to Gemini
     const uploadedFile = await ai.files.upload({
       file: file,
       config: { mimeType: "application/pdf" },
