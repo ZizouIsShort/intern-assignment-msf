@@ -31,40 +31,50 @@ export default function FileUpload() {
     setStatus("Uploading...");
     setAnalysis(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
+      const { GoogleGenAI } = await import("@google/genai");
+
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GOOGLE_API_KEY!,
       });
 
-      const data = await response.json();
+      // Upload file directly to Gemini
+      const uploadedFile = await ai.files.upload({
+        file: file,
+        config: { mimeType: "application/pdf" },
+      });
 
-      if (response.ok) {
-        setStatus("Upload successful!");
+      setStatus("Analyzing...");
 
-        if (data.respone) {
-          try {
-            let cleaned = data.respone.trim();
-            cleaned = cleaned.replace(/^```json\s*/, "");
-            cleaned = cleaned.replace(/^```\s*/, "");
-            cleaned = cleaned.replace(/```$/, "");
+      const raw = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [
+          {
+            fileData: {
+              mimeType: "application/pdf",
+              fileUri: uploadedFile.uri,
+            },
+          },
+          {
+            text: `Analyze this earnings call transcript and return JSON with tone, confidence, positives, concerns, forward_guidance, growth_initiatives.`,
+          },
+        ],
+      });
 
-            const parsed: AnalysisType = JSON.parse(cleaned);
-            setAnalysis(parsed);
-          } catch {
-            setStatus("Failed to parse analysis");
-          }
-        }
+      let response = raw.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-        setFile(null);
-      } else {
-        setStatus("Upload failed.");
-      }
-    } catch {
-      setStatus("Error connecting to server.");
+      response = response.replace(/^```json\s*/, "");
+      response = response.replace(/^```\s*/, "");
+      response = response.replace(/```$/, "");
+
+      const parsed = JSON.parse(response);
+
+      setAnalysis(parsed);
+      setStatus("Upload successful!");
+      setFile(null);
+    } catch (error) {
+      console.error(error);
+      setStatus("Error processing file");
     }
   };
 
