@@ -31,50 +31,40 @@ export default function FileUpload() {
     setStatus("Uploading...");
     setAnalysis(null);
 
+    const formData = new FormData();
+    formData.append("file", file);
+
     try {
-      const { GoogleGenAI } = await import("@google/genai");
-
-      const ai = new GoogleGenAI({
-        apiKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY!,
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
       });
 
-      // Upload file directly to Gemini
-      const uploadedFile = await ai.files.upload({
-        file: file,
-        config: { mimeType: "application/pdf" },
-      });
+      const data = await response.json();
 
-      setStatus("Analyzing...");
+      if (response.ok) {
+        setStatus("Upload successful!");
 
-      const raw = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [
-          {
-            fileData: {
-              mimeType: "application/pdf",
-              fileUri: uploadedFile.uri,
-            },
-          },
-          {
-            text: `Analyze this earnings call transcript and return JSON with tone, confidence, positives, concerns, forward_guidance, growth_initiatives.`,
-          },
-        ],
-      });
+        if (data.respone) {
+          try {
+            let cleaned = data.respone.trim();
+            cleaned = cleaned.replace(/^```json\s*/, "");
+            cleaned = cleaned.replace(/^```\s*/, "");
+            cleaned = cleaned.replace(/```$/, "");
 
-      let response = raw.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+            const parsed: AnalysisType = JSON.parse(cleaned);
+            setAnalysis(parsed);
+          } catch {
+            setStatus("Failed to parse analysis");
+          }
+        }
 
-      response = response.replace(/^```json\s*/, "");
-      response = response.replace(/^```\s*/, "");
-      response = response.replace(/```$/, "");
-
-      const parsed = JSON.parse(response);
-
-      setAnalysis(parsed);
-      setStatus("Upload successful!");
-      setFile(null);
-    } catch (error) {
-      console.error(error);
-      setStatus("Error processing file");
+        setFile(null);
+      } else {
+        setStatus("Upload failed.");
+      }
+    } catch {
+      setStatus("Error connecting to server.");
     }
   };
 
